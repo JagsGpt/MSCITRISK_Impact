@@ -1,0 +1,388 @@
+<!-- templates/risk_form.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex items-center justify-center min-h-screen -mt-20">
+    <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-4xl border border-gray-200">
+        <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">{{ title }}</h2>
+        <form method="POST" action="{{ form_action }}" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Iterate over risk dictionary to create form fields -->
+            {% for key, value in risk.items() %}
+                {# Helper to create a clean HTML ID from the column key #}
+                {% set clean_id = key | replace(' ', '_') %}
+
+                {% if key.lower() == 'risk number' %}
+                    <div class="mb-4">
+                        <label for="{{ clean_id }}" class="block text-gray-700 text-sm font-semibold mb-2">{{ key }}</label>
+                        <input type="text" id="{{ clean_id }}" name="{{ key }}" value="{{ value }}" readonly
+                               class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 bg-gray-100 cursor-not-allowed leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                    </div>
+                {% elif key == "ISP Pillar" or key == "Goal" or key == "Risk Category (As per the approved RAT)" or key == "Type of Control (Preventative/Detective)" or key == "Control Frequency" or key == "Action Owner" or key == "Status" %}
+                    <div class="mb-4">
+                        <label for="{{ clean_id }}" class="block text-gray-700 text-sm font-semibold mb-2">{{ key }}</label>
+                        <select id="{{ clean_id }}" name="{{ key }}"
+                                class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                            <option value="">-- Select {{ key }} --</option>
+                            {% if dropdown_data[key] %}
+                                {% for option_value in dropdown_data[key] %}
+                                    <option value="{{ option_value }}" {% if option_value == value %}selected{% endif %}>{{ option_value }}</option>
+                                {% endfor %}
+                            {% endif %}
+                        </select>
+                    </div>
+                {% elif key == "Risk Owner" or key == "Secondary Risk Owner" %} {# Handle both primary and secondary risk owners with user list #}
+                    <div class="mb-4">
+                        <label for="{{ clean_id }}" class="block text-gray-700 text-sm font-semibold mb-2">{{ key }}</label>
+                        <select id="{{ clean_id }}" name="{{ key }}"
+                                class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                            <option value="">-- Select {{ key }} --</option>
+                            {% for owner_username in risk_owners_list %}
+                                <option value="{{ owner_username }}" {% if owner_username == value %}selected{% endif %}>{{ owner_username }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                {% elif key == "Control Effectiveness: How effective is the control in addressi" %}
+                    <div class="mb-4">
+                        <label for="{{ clean_id }}" class="block text-gray-700 text-sm font-semibold mb-2">{{ key }}</label>
+                        <select id="{{ clean_id }}" name="{{ key }}"
+                                class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 calculate-exposure">
+                            <option value="">-- Select Control Effectiveness --</option>
+                            {% set control_effectiveness_options = ["Unsatisfactory", "Weak", "Satisfactory", "Good", "Very Good"] %}
+                            {% for option_value in control_effectiveness_options %}
+                                <option value="{{ option_value }}" {% if option_value == value %}selected{% endif %}>{{ option_value }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                {% elif key == "Impact" or key == "Likelihood" %}
+                    <div class="mb-4">
+                        <label for="{{ clean_id }}" class="block text-gray-700 text-sm font-semibold mb-2">{{ key }}</label>
+                        <input type="number" id="{{ clean_id }}" name="{{ key }}" value="{{ value }}"
+                               min="1" max="5" step="1" required
+                               class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 calculate-exposure">
+                    </div>
+                {% elif key == "Inherent Exposure" or key == "Inherent Rating" or key == "Residual Exposure (New)" %}
+                    <div class="mb-4">
+                        <label for="{{ clean_id }}" class="block text-gray-700 text-sm font-semibold mb-2">{{ key }}</label>
+                        <input type="text" id="{{ clean_id }}" name="{{ key }}" value="{{ value }}" readonly
+                               class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 bg-gray-100 cursor-not-allowed leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                    </div>
+                {% elif 'description' in key.lower() or 'plan' in key.lower() or 'controls' in key.lower() or 'cause' in key.lower() or 'consequences' in key.lower() or 'indicator' in key.lower() or 'update' in key.lower() or 'goal' in key.lower() %}
+                    <div class="mb-4">
+                        <label for="{{ clean_id }}" class="block text-gray-700 text-sm font-semibold mb-2">{{ key }}</label>
+                        <textarea id="{{ clean_id }}" name="{{ key }}"
+                                  class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 h-24">{{ value }}</textarea>
+                    </div>
+                {% elif 'date' in key.lower() %}
+                    <div class="mb-4">
+                        <label for="{{ clean_id }}" class="block text-gray-700 text-sm font-semibold mb-2">{{ key }}</label>
+                        <input type="date" id="{{ clean_id }}" name="{{ key }}" value="{{ value }}"
+                               class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                    </div>
+                {% else %}
+                    <div class="mb-4">
+                        <label for="{{ clean_id }}" class="block text-gray-700 text-sm font-semibold mb-2">{{ key }}</label>
+                        <input type="text" id="{{ clean_id }}" name="{{ key }}" value="{{ value }}"
+                               class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                    </div>
+                {% endif %}
+            {% endfor %}
+
+            <div class="md:col-span-2 flex items-center justify-between mt-6">
+                <button type="submit"
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:shadow-outline transition-colors duration-200 shadow-md">
+                    Save Risk
+                </button>
+                <a href="{{ url_for('dashboard') }}"
+                   class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-md shadow-sm transition-colors">
+                    Cancel
+                </a>
+            </div>
+        </form>
+
+        {# Explicit Risk Access Management Section (only for existing risks and if user can edit) #}
+        {% if risk.id and current_user.role == 'ADMINISTRATOR' %} {# Only Admins can manage explicit access #}
+        <div class="mt-8 p-6 bg-yellow-50 rounded-lg border border-yellow-200">
+            <h3 class="text-2xl font-semibold text-yellow-800 mb-4">Explicit Risk Access</h3>
+            <p class="text-gray-700 mb-4">
+                Grant specific users view or edit access to this risk, even if they are not the primary or secondary owner.
+            </p>
+
+            <div class="mb-4">
+                <label for="accessUserSelect" class="block text-gray-700 text-sm font-semibold mb-2">Select User:</label>
+                <select id="accessUserSelect"
+                        class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all duration-200">
+                    <option value="">-- Select User --</option>
+                    {% for user_username in risk_owners_list %} {# Using risk_owners_list which is all active users #}
+                        <option value="{{ user_username }}">{{ user_username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-4">
+                <label for="accessPermissionLevel" class="block text-gray-700 text-sm font-semibold mb-2">Permission Level:</label>
+                <select id="accessPermissionLevel"
+                        class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all duration-200">
+                    <option value="VIEWER">VIEWER</option>
+                    <option value="EDITOR">EDITOR</option>
+                </select>
+            </div>
+            <button type="button" id="addAccessBtn"
+                    class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:shadow-outline transition-colors duration-200 shadow-md">
+                Add/Update Access
+            </button>
+
+            <div class="mt-6">
+                <h4 class="text-xl font-semibold text-gray-800 mb-3">Current Explicit Access:</h4>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-200">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Permission</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="explicitAccessTableBody" class="bg-white divide-y divide-gray-100">
+                            <tr><td colspan="3" class="px-6 py-4 text-center text-gray-500">No explicit access assigned.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Helper function to get element by a cleaned ID
+        // This JS function must mirror the Jinja2 clean_id logic
+        function getCleanElementById(key) {
+            // Replace spaces with underscores. This should match the Jinja2 filter.
+            const cleanId = key.replace(/ /g, '_');
+            return document.getElementById(cleanId);
+        }
+
+        const impactInput = getCleanElementById('Impact');
+        const likelihoodInput = getCleanElementById('Likelihood');
+        const inherentExposureInput = getCleanElementById('Inherent_Exposure');
+        const inherentRatingInput = getCleanElementById('Inherent_Rating');
+        // Get Control Effectiveness select using the new clean ID
+        const controlEffectivenessSelect = getCleanElementById('Control_Effectiveness:_How_effective_is_the_control_in_addressi');
+        const residualExposureInput = getCleanElementById('Residual_Exposure_(New)');
+
+        function calculateInherentRating(exposure) {
+            if (exposure === null || isNaN(exposure)) {
+                return '';
+            }
+            if (exposure >= 16 && exposure <= 25) {
+                return "Extreme";
+            } else if (exposure >= 10 && exposure <= 15) {
+                return "High";
+            } else if (exposure >= 5 && exposure <= 9) {
+                return "Medium";
+            } else if (exposure >= 3 && exposure <= 4) {
+                return "Low";
+            } else if (exposure >= 1 && exposure <= 2) {
+                return "Housekeeping";
+            } else {
+                return "N/A";
+            }
+        }
+
+        function calculateResidualExposure(inherentRating, controlEffectiveness) {
+            if (!inherentRating || !controlEffectiveness) {
+                return '';
+            }
+
+            const mapping = {
+                "Housekeeping": {
+                    "Unsatisfactory": "Priority 3", "Weak": "Priority 3", "Satisfactory": "Priority 4",
+                    "Good": "Priority 5", "Very Good": "Priority 5"
+                },
+                "Low": {
+                    "Unsatisfactory": "Priority 2", "Weak": "Priority 3", "Satisfactory": "Priority 3",
+                    "Good": "Priority 4", "Very Good": "Priority 5"
+                },
+                "Medium": {
+                    "Unsatisfactory": "Priority 1", "Weak": "Priority 2", "Satisfactory": "Priority 3",
+                    "Good": "Priority 3", "Very Good": "Priority 4"
+                },
+                "High": {
+                    "Unsatisfactory": "Priority 1", "Weak": "Priority 1", "Satisfactory": "Priority 2",
+                    "Good": "Priority 2", "Very Good": "Priority 3"
+                },
+                "Extreme": {
+                    "Unsatisfactory": "Priority 1", "Weak": "Priority 1", "Satisfactory": "Priority 1",
+                    "Good": "Priority 2", "Very Good": "Priority 2"
+                }
+            };
+            // Ensure controlEffectiveness is trimmed before lookup
+            return (mapping[inherentRating] && mapping[inherentRating][controlEffectiveness.trim()]) || '';
+        }
+
+
+        function updateCalculatedFields() {
+            const impact = parseInt(impactInput ? impactInput.value : '');
+            const likelihood = parseInt(likelihoodInput ? likelihoodInput.value : '');
+            const controlEffectiveness = controlEffectivenessSelect ? controlEffectivenessSelect.value : ''; // Get value from select
+
+            let inherentExposure = null;
+            let inherentRating = '';
+            let residualExposure = '';
+
+            if (!isNaN(impact) && impact >= 1 && impact <= 5 && !isNaN(likelihood) && likelihood >= 1 && likelihood <= 5) {
+                inherentExposure = impact * likelihood;
+                inherentRating = calculateInherentRating(inherentExposure);
+            }
+
+            // Only calculate residual exposure if both inherentRating and controlEffectiveness are available
+            if (inherentRating && controlEffectiveness) {
+                residualExposure = calculateResidualExposure(inherentRating, controlEffectiveness);
+            }
+
+            // Update the input fields
+            if (inherentExposureInput) inherentExposureInput.value = inherentExposure !== null ? inherentExposure : '';
+            if (inherentRatingInput) inherentRatingInput.value = inherentRating;
+            if (residualExposureInput) residualExposureInput.value = residualExposure;
+
+            // Debugging output to console
+            console.log('DEBUG FORM:');
+            console.log('  Impact:', impact);
+            console.log('  Likelihood:', likelihood);
+            console.log('  Control Effectiveness:', `'${controlEffectiveness}'`);
+            console.log('  Inherent Exposure:', inherentExposure);
+            console.log('  Inherent Rating:', inherentRating);
+            console.log('  Residual Exposure:', residualExposure);
+        }
+
+        // Attach event listeners to Impact, Likelihood, and Control Effectiveness fields
+        if (impactInput) impactInput.addEventListener('input', updateCalculatedFields);
+        if (likelihoodInput) likelihoodInput.addEventListener('input', updateCalculatedFields);
+        // Attach 'change' event listener for the select element
+        if (controlEffectivenessSelect) controlEffectivenessSelect.addEventListener('change', updateCalculatedFields);
+
+
+        // Call once on load to ensure initial values are calculated if form is for editing or new
+        updateCalculatedFields();
+
+
+        // --- Explicit Risk Access Management Logic (New) ---
+        const riskId = "{{ risk.id }}"; // Get risk ID from Jinja context
+        const addAccessBtn = document.getElementById('addAccessBtn');
+        const accessUserSelect = document.getElementById('accessUserSelect');
+        const accessPermissionLevel = document.getElementById('accessPermissionLevel');
+        const explicitAccessTableBody = document.getElementById('explicitAccessTableBody');
+
+        // Only initialize access management if on an existing risk and user is Admin
+        const currentUserRole = "{{ current_user.role }}";
+        if (riskId && currentUserRole === 'ADMINISTRATOR') {
+            fetchExplicitAccessUsers(riskId);
+
+            addAccessBtn.addEventListener('click', async function() {
+                const username = accessUserSelect.value;
+                const permission = accessPermissionLevel.value;
+
+                if (!username) {
+                    window.showCustomMessage('Please select a user to grant access.', 'danger');
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`/api/risk/${riskId}/access/add`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ username: username, permission_level: permission })
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        window.showCustomMessage(result.message, 'success');
+                        fetchExplicitAccessUsers(riskId); // Refresh the list
+                    } else {
+                        window.showCustomMessage(result.message, 'danger');
+                    }
+                } catch (error) {
+                    console.error('Error adding explicit access:', error);
+                    window.showCustomMessage('Failed to add explicit access.', 'danger');
+                }
+            });
+
+            // Event delegation for remove buttons
+            explicitAccessTableBody.addEventListener('click', async function(event) {
+                if (event.target.classList.contains('remove-access-btn')) {
+                    const userIdToRemove = event.target.dataset.userId;
+                    if (confirm(`Are you sure you want to remove explicit access for this user?`)) {
+                        try {
+                            const response = await fetch(`/api/risk/${riskId}/access/remove`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({ user_id: userIdToRemove })
+                            });
+                            const result = await response.json();
+                            if (result.success) {
+                                window.showCustomMessage(result.message, 'success');
+                                fetchExplicitAccessUsers(riskId); // Refresh the list
+                            } else {
+                                window.showCustomMessage(result.message, 'danger');
+                            }
+                        } catch (error) {
+                            console.error('Error removing explicit access:', error);
+                            window.showCustomMessage('Failed to remove explicit access.', 'danger');
+                        }
+                    }
+                }
+            });
+
+        } else {
+            // Hide the explicit access section if not an existing risk or not admin
+            const explicitAccessSection = document.querySelector('.mt-8.p-6.bg-yellow-50');
+            if (explicitAccessSection) {
+                explicitAccessSection.style.display = 'none';
+            }
+        }
+
+        // Function to fetch and render explicit access users
+        async function fetchExplicitAccessUsers(riskId) {
+            explicitAccessTableBody.innerHTML = `<tr><td colspan="3" class="px-6 py-4 text-center text-gray-500">Loading explicit access users...</td></tr>`;
+            try {
+                const response = await fetch(`/api/risk/${riskId}/access`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const users = await response.json();
+                renderExplicitAccessTable(users);
+            } catch (error) {
+                console.error('Error fetching explicit access users:', error);
+                explicitAccessTableBody.innerHTML = `<tr><td colspan="3" class="px-6 py-4 text-center text-red-500">Failed to load explicit access.</td></tr>`;
+                window.showCustomMessage('Failed to load explicit access users.', 'danger');
+            }
+        }
+
+        // Function to render the explicit access table
+        function renderExplicitAccessTable(users) {
+            explicitAccessTableBody.innerHTML = '';
+            if (users.length === 0) {
+                explicitAccessTableBody.innerHTML = `<tr><td colspan="3" class="px-6 py-4 text-center text-gray-500">No explicit access assigned.</td></tr>`;
+                return;
+            }
+
+            users.forEach(user => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
+                row.innerHTML = `
+                    <td class="px-6 py-4 text-sm text-gray-900">${user.username}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">${user.permission_level}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">
+                        <button type="button" class="remove-access-btn bg-red-500 hover:bg-red-600 text-white text-xs font-bold py-1 px-2 rounded-md shadow-sm transition-colors" data-user-id="${user.user_id}">Remove</button>
+                    </td>
+                `;
+                explicitAccessTableBody.appendChild(row);
+            });
+        }
+
+    });
+</script>
+{% endblock %}

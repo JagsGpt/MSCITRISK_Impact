@@ -1,0 +1,903 @@
+<!-- templates/base.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERM Management - {{ title }}</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Bootstrap CSS CDN (integrity and crossorigin removed to resolve error) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Inter font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Light gray background */
+        }
+        .flash-message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            animation: fadeOut 5s forwards;
+        }
+        .flash-message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .flash-message.danger {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .flash-message.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .flash-message.warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+        @keyframes fadeOut {
+            0% { opacity: 1; transform: translateY(0); }
+            90% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-20px); }
+        }
+
+        /* Custom styles for table column sizing and wrapping (moved from dashboard.html) */
+        table {
+            table-layout: auto; /* Allows columns to size based on content */
+            width: 100%;
+        }
+        th, td {
+            max-width: 160px; /* Updated to 160px */
+            overflow-wrap: break-word; /* Ensures long words break and wrap */
+            white-space: normal; /* Allows text to wrap naturally */
+            padding: 0.75rem 1.5rem; /* Tailwind's px-6 py-4 */
+        }
+        th {
+            text-align: left; /* Align headers to left */
+        }
+        /* The CSS classes below are now primarily for reference/backup,
+           as inline styles will take precedence for Residual Exposure cells. */
+        td.priority-1 { background-color: #e41a1c; color: white; } /* Extreme Red */
+        td.priority-2 { background-color: #ff7f00; color: white; } /* High Amber */
+        td.priority-3 { background-color: #ffff33; color: black; } /* Medium Yellow */
+        td.priority-4 { background-color: #27ae60; color: white; } /* Low Green (Updated) */
+        td.priority-5 { background-color: #377eb8; color: white; } /* Housekeeping Blue */
+
+        /* Chart specific styles for text visibility (moved from dashboard.html) */
+        .chart-label-text {
+            font-size: 14px; /* Smaller font for labels inside bars */
+            fill: black; /* Default text color for labels */
+            text-anchor: middle;
+        }
+        /* Adjust text color for dark backgrounds */
+        .priority-dark-bg-text {
+            fill: white;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    <nav class="bg-gray-800 p-4 shadow-md">
+        <div class="container mx-auto flex justify-between items-center">
+            <a href="{{ url_for('dashboard') }}" class="text-white text-2xl font-bold rounded-md px-3 py-2 hover:bg-gray-700 transition-colors">ERM Management</a>
+            <div class="flex items-center space-x-4">
+                {% if current_user.is_authenticated %}
+                    <a href="{{ url_for('dashboard') }}" class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors">Dashboard</a>
+                    {% if current_user.role == 'ADMINISTRATOR' %}
+                        <a href="{{ url_for('admin_panel') }}" class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors">Admin</a>
+                    {% endif %}
+                    <span class="text-gray-400 text-sm">Hello, {{ current_user.username }} ({{ current_user.role }})</span>
+                    <a href="{{ url_for('logout') }}" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors shadow-sm">Logout</a>
+                {% else %}
+                    <a href="{{ url_for('login') }}" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors shadow-sm">Login</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-grow container mx-auto p-6">
+        {# This div will be the target for JavaScript-driven flash messages #}
+        <div id="flash-message-container" class="fixed top-4 right-4 z-50 space-y-2">
+            {# Flash messages will be appended here by JavaScript #}
+        </div>
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Global JavaScript includes and scripts -->
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" xintegrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <!-- D3.js CDN for charts -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <!-- html2canvas CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- jsPDF CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <script>
+        // Declare showCustomMessage globally, outside of any DOMContentLoaded listener
+        window.showCustomMessage = function(message, type) {
+            const flashContainer = document.getElementById('flash-message-container');
+            if (!flashContainer) {
+                console.error("Flash message container not found!");
+                return;
+            }
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `flash-message alert alert-${type} rounded-lg shadow-lg`;
+            messageDiv.setAttribute('role', 'alert');
+            messageDiv.textContent = message;
+
+            flashContainer.appendChild(messageDiv);
+
+            // Automatically remove message after 5 seconds
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 5000);
+        };
+
+        // All dashboard-related JavaScript logic
+        document.addEventListener('DOMContentLoaded', function() {
+            // Process any Flask flashed messages on page load
+            const flaskFlashedMessages = {{ get_flashed_messages(with_categories=true) | tojson }};
+            flaskFlashedMessages.forEach(msg => {
+                window.showCustomMessage(msg[1], msg[0]); // msg[0] is category, msg[1] is message
+            });
+
+            // Only proceed with dashboard-specific elements if they exist on the page
+            const primaryOwnerSelect = document.getElementById('primaryOwnerSelect'); // New primary select
+            const secondaryOwnerSelect = document.getElementById('secondaryOwnerSelect'); // New secondary select
+
+            if (!primaryOwnerSelect || !secondaryOwnerSelect) {
+                console.log("Not on dashboard page or missing owner selectors, skipping dashboard JS initialization.");
+                return; // Exit if not on dashboard or missing key elements
+            }
+
+            // Dashboard-specific elements (now guaranteed to exist if we're on the dashboard)
+            const dashboardTitle = document.getElementById('dashboardTitle');
+            const actionButtonsContainer = document.getElementById('actionButtonsContainer');
+            const modalColumnCheckboxes = document.getElementById('modalColumnCheckboxes');
+            const riskTableHeaderRow = document.getElementById('riskTableHeaderRow');
+            const riskTableBody = document.getElementById('riskTableBody');
+            const applyColumnSelectionBtn = document.getElementById('applyColumnSelectionBtn');
+            const exportPdfButton = document.getElementById('exportPdfButton');
+
+            let allRisksData = [];
+            let allColumnNames = [];
+            let selectedColumns = [];
+
+            // Pass current user role and username from Jinja to JS for client-side logic
+            const currentUserRole = "{{ current_user_role }}";
+            const currentUserName = "{{ current_user_username }}";
+
+
+            // Define the desired column order explicitly
+            const DESIRED_COLUMN_ORDER = [
+                "Risk Number",
+                "ISP Pillar",
+                "Goal",
+                "Risk Name",
+                "Due Date",
+                "Status",
+                "Risk Description",
+                "Root Cause",
+                "Consequences",
+                "Risk Category (As per the approved RAT)",
+                "Impact",
+                "Likelihood",
+                "Inherent Exposure",
+                "Inherent Rating",
+                "Control Effectiveness: How effective is the control in addressi",
+                "Residual Exposure (New)",
+                "Risk Owner",
+                "Secondary Risk Owner", // Added secondary owner
+                "Current Controls (What mechanism do we have in place to ensure the achievement of objectives?)",
+                "Type of Control (Preventative/Detective)",
+                "Control Frequency",
+                "Key Risk Indicator (KRI)",
+                "Action plan to further improve the Controls and Mitigate the Risk",
+                "Action Owner",
+                "Status Update Term1",
+                "Status Update Term2",
+                "Status Update Term3",
+                "Status Update Term4"
+            ];
+
+            // Define the columns that should be selected by default
+            const DEFAULT_SELECTED_COLUMNS = [
+                "Risk Name",
+                "Due Date",
+                "Risk Description",
+                "Root Cause",
+                "Consequences",
+                "Inherent Rating",
+                "Residual Exposure (New)",
+                "Risk Owner", // Include primary owner by default
+                "Secondary Risk Owner", // Include secondary owner by default
+                "Action Owner"
+            ];
+
+            // Initialize Bootstrap Modals (now that Bootstrap JS is loaded)
+            const columnSelectionModal = new bootstrap.Modal(document.getElementById('columnSelectionModal'));
+            const confirmDeleteModal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
+            let riskIdToDelete = null;
+
+            // Function to update the dashboard title
+            function updateDashboardTitle(primaryOwner, secondaryOwner) {
+                const currentDate = new Date().toLocaleDateString('en-ZA', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+                let titleText = `Risk Dashboard`;
+                if (primaryOwner && primaryOwner !== 'all_risks') {
+                    titleText += ` for Primary Owner "${primaryOwner}"`;
+                }
+                if (secondaryOwner && secondaryOwner !== 'all_risks') {
+                    if (primaryOwner && primaryOwner !== 'all_risks') {
+                        titleText += ` and Secondary Owner "${secondaryOwner}"`;
+                    } else {
+                        titleText += ` for Secondary Owner "${secondaryOwner}"`;
+                    }
+                }
+                if (!primaryOwner && !secondaryOwner) {
+                    titleText += ` (All Risks)`;
+                }
+                titleText += ` as at ${currentDate}`;
+                dashboardTitle.textContent = titleText;
+            }
+
+            // Function to fetch primary risk owners for dropdown
+            async function fetchPrimaryRiskOwners() {
+                try {
+                    const response = await fetch('/api/primary_risk_owners');
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const owners = await response.json();
+                    primaryOwnerSelect.innerHTML = '<option value="">-- Select Primary Owner --</option><option value="all_risks">All Primary Risks</option>';
+                    owners.forEach(owner => {
+                        const option = document.createElement('option');
+                        option.value = owner;
+                        option.textContent = owner;
+                        primaryOwnerSelect.appendChild(option);
+                    });
+                } catch (error) {
+                    console.error('Error fetching primary risk owners:', error);
+                    window.showCustomMessage('Failed to load primary risk owners.', 'danger');
+                }
+            }
+
+            // Function to fetch secondary risk owners for dropdown
+            async function fetchSecondaryRiskOwners() {
+                try {
+                    const response = await fetch('/api/secondary_risk_owners');
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const owners = await response.json();
+                    secondaryOwnerSelect.innerHTML = '<option value="">-- Select Secondary Owner --</option><option value="all_risks">All Secondary Risks</option>';
+                    owners.forEach(owner => {
+                        const option = document.createElement('option');
+                        option.value = owner;
+                        option.textContent = owner;
+                        secondaryOwnerSelect.appendChild(option);
+                    });
+                } catch (error) {
+                    console.error('Error fetching secondary risk owners:', error);
+                    window.showCustomMessage('Failed to load secondary risk owners.', 'danger');
+                }
+            }
+
+
+            // Function to fetch all risks for selected primary/secondary owners and populate column selector
+            async function fetchAndProcessRisks(primaryOwner = '', secondaryOwner = '') {
+                riskTableBody.innerHTML = `<tr><td colspan="100%" class="px-6 py-4 text-center text-gray-500">Loading risks...</td></tr>`;
+                riskTableHeaderRow.innerHTML = '';
+                modalColumnCheckboxes.innerHTML = '<p class="text-gray-500">Loading columns...</p>';
+
+                let apiUrl = '/api/all_risks_for_dashboard'; // Default to all risks (subject to license/role)
+                let queryParams = new URLSearchParams();
+
+                if (primaryOwner && primaryOwner !== 'all_risks') {
+                    queryParams.append('primary_owner', primaryOwner);
+                }
+                if (secondaryOwner && secondaryOwner !== 'all_risks') {
+                    queryParams.append('secondary_owner', secondaryOwner);
+                }
+
+                if (queryParams.toString()) {
+                    apiUrl += '?' + queryParams.toString();
+                }
+
+                updateDashboardTitle(primaryOwner, secondaryOwner);
+
+                try {
+                    const response = await fetch(apiUrl);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    allRisksData = await response.json();
+
+                    const allColumnsResponse = await fetch('/api/all_risks');
+                    if (!allColumnsResponse.ok) {
+                        throw new Error(`HTTP error! status: ${allColumnsResponse.status}`);
+                    }
+                    const sampleRiskForColumns = await allColumnsResponse.json();
+                    
+                    let tempAllColumnNames = [];
+                    if (sampleRiskForColumns.length > 0) {
+                        const actualFetchedColumns = Object.keys(sampleRiskForColumns[0]);
+                        tempAllColumnNames = DESIRED_COLUMN_ORDER.filter(col => actualFetchedColumns.includes(col));
+                    }
+
+                    const canEditDelete = ['ADMINISTRATOR', 'EDITOR'].includes(currentUserRole);
+                    if (canEditDelete && !tempAllColumnNames.includes('Actions')) {
+                        tempAllColumnNames.push('Actions');
+                    }
+
+                    allColumnNames = tempAllColumnNames.filter(col => col.toLowerCase() !== 'id');
+
+                    populateColumnSelector(allColumnNames);
+
+                    if (allRisksData.length > 0) {
+                        if (selectedColumns.length === 0) {
+                            selectedColumns = [...DEFAULT_SELECTED_COLUMNS];
+                        }
+                        renderRiskTable(allRisksData, selectedColumns);
+                        actionButtonsContainer.style.display = 'flex';
+                    } else {
+                        riskTableBody.innerHTML = `<tr><td colspan="100%" class="px-6 py-4 text-center text-gray-500">No risks found for this selection.</td></tr>`;
+                        actionButtonsContainer.style.display = 'none';
+                    }
+
+                } catch (error) {
+                    console.error('Error fetching risks or columns:', error);
+                    riskTableBody.innerHTML = `<tr><td colspan="100%" class="px-6 py-4 text-center text-red-500">Failed to load risks.</td></tr>`;
+                    modalColumnCheckboxes.innerHTML = '<p class="text-gray-500">Error loading columns.</p>';
+                    window.showCustomMessage('Failed to load risks. Please try again later. ' + error.message, 'danger');
+                    actionButtonsContainer.style.display = 'none';
+                }
+            }
+
+            // Function to populate the column selector checkboxes in the modal
+            function populateColumnSelector(columns) {
+                modalColumnCheckboxes.innerHTML = '';
+
+                if (columns.length === 0) {
+                    modalColumnCheckboxes.innerHTML = '<p class="text-gray-500">No columns available.</p>';
+                    return;
+                }
+
+                const maxBoxesPerColumn = 5;
+                let currentColumnDiv = null;
+
+                columns.forEach((col, index) => {
+                    if (index % maxBoxesPerColumn === 0) {
+                        currentColumnDiv = document.createElement('div');
+                        currentColumnDiv.className = 'flex flex-col space-y-1';
+                        modalColumnCheckboxes.appendChild(currentColumnDiv);
+                    }
+
+                    const div = document.createElement('div');
+                    div.className = 'flex items-center';
+                    const input = document.createElement('input');
+                    input.type = 'checkbox';
+                    input.id = `col-${col.replace(/[^a-zA-Z0-9_]/g, '_')}`;
+                    input.value = col;
+                    input.checked = selectedColumns.includes(col);
+                    input.className = 'form-checkbox h-4 w-4 text-blue-600 rounded-md focus:ring-blue-500 transition-colors cursor-pointer';
+
+                    const label = document.createElement('label');
+                    label.htmlFor = input.id;
+                    label.className = 'ml-2 text-gray-700 cursor-pointer';
+                    label.textContent = col;
+
+                    div.appendChild(input);
+                    div.appendChild(label);
+                    currentColumnDiv.appendChild(div);
+                });
+            }
+
+            // Function to update the table based on selected columns from the modal
+            function updateTableColumns() {
+                selectedColumns = Array.from(modalColumnCheckboxes.querySelectorAll('input[type="checkbox"]:checked'))
+                                             .map(checkbox => checkbox.value);
+                renderRiskTable(allRisksData, selectedColumns);
+                columnSelectionModal.hide();
+            }
+
+            // Function to render the risk table with specified columns for PDF export
+            function renderTableForPdf(risks, columnsToDisplay) {
+                riskTableHeaderRow.innerHTML = '';
+                riskTableBody.innerHTML = '';
+
+                if (risks.length === 0 || columnsToDisplay.length === 0) {
+                    riskTableBody.innerHTML = `<tr><td colspan="100%" class="px-6 py-4 text-center text-gray-500">No risks or selected columns to display.</td></tr>`;
+                    return;
+                }
+
+                const pdfColumns = columnsToDisplay.filter(col => col !== 'Actions');
+
+                pdfColumns.forEach(header => {
+                    const th = document.createElement('th');
+                    th.scope = 'col';
+                    th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+                    th.textContent = header;
+                    riskTableHeaderRow.appendChild(th);
+                });
+
+                risks.forEach(risk => {
+                    const row = document.createElement('tr');
+                    row.className = 'hover:bg-gray-50';
+                    pdfColumns.forEach(header => {
+                        const cell = document.createElement('td');
+                        const cellValue = risk[header] !== null && risk[header] !== undefined ? risk[header] : '-';
+                        cell.textContent = cellValue;
+                        cell.title = cellValue;
+
+                        if (header === "Residual Exposure (New)") {
+                            const priorityClass = cellValue.replace(' ', '-').toLowerCase();
+                            const bgColor = residualExposureColors[cellValue] || '#ffffff';
+                            const textColor = (priorityClass === 'priority-1' || priorityClass === 'priority-2' || priorityClass === 'priority-5') ? 'white' : 'black';
+
+                            cell.style.backgroundColor = bgColor;
+                            cell.style.color = textColor;
+                            cell.classList.add(priorityClass);
+                        }
+                        cell.className = 'px-6 py-4 text-sm text-gray-900';
+                        row.appendChild(cell);
+                    });
+                    riskTableBody.appendChild(row);
+                });
+            }
+
+            // Original renderRiskTable function (for interactive display)
+            function renderRiskTable(risks, columnsToDisplay) {
+                riskTableHeaderRow.innerHTML = '';
+                riskTableBody.innerHTML = '';
+
+                if (risks.length === 0 || columnsToDisplay.length === 0) {
+                    riskTableBody.innerHTML = `<tr><td colspan="100%" class="px-6 py-4 text-center text-gray-500">No risks or selected columns to display.</td></tr>`;
+                    return;
+                }
+
+                const canEditDelete = ['ADMINISTRATOR', 'EDITOR'].includes(currentUserRole);
+                let finalColumnsToDisplay = [...columnsToDisplay];
+
+                if (canEditDelete && columnsToDisplay.includes('Actions')) {
+                    // Actions column will be rendered if selected and user has permission
+                } else {
+                    finalColumnsToDisplay = finalColumnsToDisplay.filter(col => col !== 'Actions');
+                }
+
+                finalColumnsToDisplay.forEach(header => {
+                    const th = document.createElement('th');
+                    th.scope = 'col';
+                    th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+                    th.textContent = header;
+                    riskTableHeaderRow.appendChild(th);
+                });
+
+                risks.forEach(risk => {
+                    const row = document.createElement('tr');
+                    row.className = 'hover:bg-gray-50';
+                    finalColumnsToDisplay.forEach(header => {
+                        const cell = document.createElement('td');
+                        if (header === 'Actions' && canEditDelete && columnsToDisplay.includes('Actions')) {
+                            const editLink = document.createElement('a');
+                            editLink.href = `/risk/edit/${risk.id}`;
+                            editLink.className = 'bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-bold py-1 px-2 rounded-md shadow-sm transition-colors mr-2';
+                            editLink.textContent = 'Edit';
+
+                            const deleteButton = document.createElement('button');
+                            deleteButton.className = 'bg-red-500 hover:bg-red-600 text-white text-xs font-bold py-1 px-2 rounded-md shadow-sm transition-colors';
+                            deleteButton.textContent = 'Delete';
+                            deleteButton.setAttribute('data-risk-id', risk.id);
+                            deleteButton.addEventListener('click', function() {
+                                riskIdToDelete = this.getAttribute('data-risk-id');
+                                confirmDeleteModal.show();
+                            });
+
+                            cell.appendChild(editLink);
+                            cell.appendChild(deleteButton);
+                        } else {
+                            const cellValue = risk[header] !== null && risk[header] !== undefined ? risk[header] : '-';
+                            cell.textContent = cellValue;
+                            cell.title = cellValue;
+
+                            if (header === "Residual Exposure (New)") {
+                                const priorityClass = cellValue.replace(' ', '-').toLowerCase();
+                                const bgColor = residualExposureColors[cellValue] || '#ffffff';
+                                const textColor = (priorityClass === 'priority-1' || priorityClass === 'priority-2' || priorityClass === 'priority-5') ? 'white' : 'black';
+
+                                cell.style.backgroundColor = bgColor;
+                                cell.style.color = textColor;
+                                cell.classList.add(priorityClass);
+                                console.log(`DEBUG: Applying inline style bg: ${bgColor}, color: ${textColor} and class: ${priorityClass} to cell with value '${cellValue}'`);
+                            }
+                        }
+                        cell.className = 'px-6 py-4 text-sm text-gray-900';
+                        row.appendChild(cell);
+                    });
+                    riskTableBody.appendChild(row);
+                });
+            }
+
+            // --- Chart Functions ---
+            const chartWidth = 265;
+            const chartHeight = 265;
+
+            // Define color scales for charts and table cells
+            const inherentRatingColors = {
+                "Extreme": "#e41a1c",
+                "High": "#ff7f00",
+                "Medium": "#ffff33",
+                "Low": "#27ae60",
+                "Housekeeping": "#377eb8"
+            };
+
+            const residualExposureColors = {
+                "Priority 1": "#e41a1c",
+                "Priority 2": "#ff7f00",
+                "Priority 3": "#ffff33",
+                "Priority 4": "#27ae60",
+                "Priority 5": "#377eb8"
+            };
+
+
+            async function drawInherentRatingChart() {
+                try {
+                    const chartData = await d3.json('/api/chart_data/inherent_residual');
+                    const svg = d3.select("#inherentRatingChart")
+                                  .html("")
+                                  .append("svg")
+                                  .attr("width", chartWidth)
+                                  .attr("height", chartHeight);
+
+                    const margin = {top: 20, right: 20, bottom: 60, left: 40};
+                    const width = chartWidth - margin.left - margin.right;
+                    const height = chartHeight - margin.top - margin.bottom;
+
+                    const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+                    const inherentRatingCounts = d3.rollup(chartData, v => d3.sum(v, d => d.count), d => d.inherent_rating);
+                    const aggregatedData = Array.from(inherentRatingCounts, ([key, value]) => ({inherent_rating: key, count: value}));
+
+                    const inherentRatingsOrder = ["Housekeeping", "Low", "Medium", "High", "Extreme"];
+                    aggregatedData.sort((a,b) => inherentRatingsOrder.indexOf(a.inherent_rating) - inherentRatingsOrder.indexOf(b.inherent_rating));
+
+                    const x = d3.scaleBand()
+                        .domain(aggregatedData.map(d => d.inherent_rating))
+                        .range([0, width])
+                        .padding(0.1);
+
+                    const y = d3.scaleLinear()
+                        .domain([0, d3.max(aggregatedData, d => d.count) || 1])
+                        .range([height, 0]);
+
+                    g.append("g")
+                        .attr("class", "axis x-axis")
+                        .attr("transform", `translate(0,${height})`)
+                        .call(d3.axisBottom(x))
+                        .selectAll("text")
+                        .attr("transform", "rotate(-45)")
+                        .style("text-anchor", "end");
+
+                    g.append("g")
+                        .attr("class", "axis y-axis")
+                        .call(d3.axisLeft(y).ticks(5));
+
+                    g.selectAll(".bar")
+                        .data(aggregatedData)
+                        .enter().append("rect")
+                        .attr("class", "bar")
+                        .attr("x", d => x(d.inherent_rating))
+                        .attr("y", d => y(d.count))
+                        .attr("width", x.bandwidth())
+                        .attr("height", d => height - y(d.count))
+                        .attr("fill", d => inherentRatingColors[d.inherent_rating] || "#cccccc");
+
+                    g.selectAll(".bar-label")
+                        .data(aggregatedData)
+                        .enter().append("text")
+                        .attr("class", "bar-label")
+                        .attr("x", d => x(d.inherent_rating) + x.bandwidth() / 2)
+                        .attr("y", d => y(d.count) - 5)
+                        .attr("text-anchor", "middle")
+                        .style("font-size", "8px")
+                        .text(d => d.count);
+                } catch (error) {
+                    console.error('Error drawing Inherent Rating Chart:', error);
+                    window.showCustomMessage('Failed to load Inherent Rating Chart data.', 'danger');
+                }
+            }
+
+            async function drawResidualExposureChart() {
+                try {
+                    const chartData = await d3.json('/api/chart_data/inherent_residual');
+                    const svg = d3.select("#residualExposureChart")
+                                  .html("")
+                                  .append("svg")
+                                  .attr("width", chartWidth)
+                                  .attr("height", chartHeight);
+
+                    const margin = {top: 20, right: 20, bottom: 60, left: 40};
+                    const width = chartWidth - margin.left - margin.right;
+                    const height = chartHeight - margin.top - margin.bottom;
+
+                    const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+                    const residualExposureCounts = d3.rollup(chartData, v => d3.sum(v, d => d.count), d => d.residual_exposure);
+                    const aggregatedData = Array.from(residualExposureCounts, ([key, value]) => ({residual_exposure: key, count: value}));
+
+                    const residualExposuresOrder = ["Priority 1", "Priority 2", "Priority 3", "Priority 4", "Priority 5"];
+                    aggregatedData.sort((a,b) => residualExposuresOrder.indexOf(a.residual_exposure) - residualExposuresOrder.indexOf(b.residual_exposure));
+
+                    const x = d3.scaleBand()
+                        .domain(aggregatedData.map(d => d.residual_exposure))
+                        .range([0, width])
+                        .padding(0.1);
+
+                    const y = d3.scaleLinear()
+                        .domain([0, d3.max(aggregatedData, d => d.count) || 1])
+                        .range([height, 0]);
+
+                    g.append("g")
+                        .attr("class", "axis x-axis")
+                        .attr("transform", `translate(0,${height})`)
+                        .call(d3.axisBottom(x))
+                        .selectAll("text")
+                        .attr("transform", "rotate(-45)")
+                        .style("text-anchor", "end");
+
+                    g.append("g")
+                        .attr("class", "axis y-axis")
+                        .call(d3.axisLeft(y).ticks(5));
+
+                    g.selectAll(".bar")
+                        .data(aggregatedData)
+                        .enter().append("rect")
+                        .attr("class", "bar")
+                        .attr("x", d => x(d.residual_exposure))
+                        .attr("y", d => y(d.count))
+                        .attr("width", x.bandwidth())
+                        .attr("height", d => height - y(d.count))
+                        .attr("fill", d => residualExposureColors[d.residual_exposure] || "#cccccc");
+
+                    g.selectAll(".bar-label")
+                        .data(aggregatedData)
+                        .enter().append("text")
+                        .attr("class", "bar-label")
+                        .attr("x", d => x(d.residual_exposure) + x.bandwidth() / 2)
+                        .attr("y", d => y(d.count) - 5)
+                        .attr("text-anchor", "middle")
+                        .style("font-size", "8px")
+                        .text(d => d.count);
+                } catch (error) {
+                    console.error('Error drawing Residual Exposure Chart:', error);
+                    window.showCustomMessage('Failed to load Residual Exposure Chart data.', 'danger');
+                }
+            }
+
+            async function drawDueDateStatusChart() {
+                try {
+                    const chartData = await d3.json('/api/chart_data/due_date_status');
+                    const svg = d3.select("#dueDateStatusChart")
+                                  .html("")
+                                  .append("svg")
+                                  .attr("width", chartWidth)
+                                  .attr("height", chartHeight);
+
+                    const radius = Math.min(chartWidth, chartHeight) / 2 - 20;
+
+                    const g = svg.append("g")
+                                 .attr("transform", `translate(${chartWidth / 2},${chartHeight / 2})`);
+
+                    const color = d3.scaleOrdinal()
+                                    .domain(chartData.map(d => d.status))
+                                    .range(chartData.map(d => d.color));
+
+                    const pie = d3.pie()
+                                  .sort(null)
+                                  .value(d => d.count);
+
+                    const path = d3.arc()
+                                   .outerRadius(radius - 10)
+                                   .innerRadius(0);
+
+                    const label = d3.arc()
+                                    .outerRadius(radius - 40)
+                                    .innerRadius(radius - 40);
+
+                    const arc = g.selectAll(".arc")
+                                 .data(pie(chartData))
+                                 .enter().append("g")
+                                 .attr("class", "arc");
+
+                    arc.append("path")
+                       .attr("d", path)
+                       .attr("fill", d => color(d.data.status));
+
+                    arc.append("text")
+                       .attr("transform", d => `translate(${label.centroid(d)})`)
+                       .attr("dy", "0.35em")
+                       .style("font-size", "10px")
+                       .style("text-anchor", "middle")
+                       .text(d => `${d.data.status} (${d.data.count})`);
+                } catch (error) {
+                    console.error('Error drawing Due Date Status Chart:', error);
+                    window.showCustomMessage('Failed to load Due Date Status Chart data.', 'danger');
+                }
+            }
+
+            // --- Initial Chart Rendering ---
+            drawInherentRatingChart();
+            drawResidualExposureChart();
+            drawDueDateStatusChart();
+
+
+            // Event listener for dropdown change
+            primaryOwnerSelect.addEventListener('change', filterRisksByOwners);
+            secondaryOwnerSelect.addEventListener('change', filterRisksByOwners);
+
+            async function filterRisksByOwners() {
+                const selectedPrimaryOwner = primaryOwnerSelect.value;
+                const selectedSecondaryOwner = secondaryOwnerSelect.value;
+                await fetchAndProcessRisks(selectedPrimaryOwner, selectedSecondaryOwner);
+            }
+
+
+            // Event listener for the "Apply Selection" button in the modal
+            applyColumnSelectionBtn.addEventListener('click', updateTableColumns);
+
+            // Event listener for the actual delete confirmation button
+            document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+                if (riskIdToDelete) {
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = `/risk/delete/${riskIdToDelete}`;
+                    document.body.appendChild(form);
+                    form.submit();
+                }
+                confirmDeleteModal.hide();
+            });
+
+            // --- PDF Export Functionality ---
+            exportPdfButton.addEventListener('click', async function() {
+                window.showCustomMessage('Generating PDF...', 'info');
+
+                const elementsToHide = [
+                    primaryOwnerSelect, // Changed from riskOwnerSelect
+                    secondaryOwnerSelect, // Added secondary select
+                    document.getElementById('primaryOwnerSelectLabel'), // Updated label ID
+                    document.getElementById('secondaryOwnerSelectLabel'), // New label ID
+                    actionButtonsContainer,
+                    document.querySelector('[data-bs-toggle="modal"][data-bs-target="#columnSelectionModal"]'),
+                    document.querySelector('a[href*="add_risk_route"]'),
+                    exportPdfButton
+                ];
+                const originalDisplayStates = new Map();
+
+                elementsToHide.forEach(el => {
+                    if (el) {
+                        originalDisplayStates.set(el, el.style.display);
+                        el.style.display = 'none';
+                    }
+                });
+
+                const tableContainer = document.querySelector('.overflow-x-auto');
+                const originalOverflowX = tableContainer.style.overflowX;
+                const originalThMaxWidths = [];
+                const originalTdMaxWidths = [];
+
+                document.querySelectorAll('th').forEach(th => {
+                    originalThMaxWidths.push(th.style.maxWidth);
+                    th.style.maxWidth = 'none';
+                });
+                document.querySelectorAll('td').forEach(td => {
+                    originalTdMaxWidths.push(td.style.maxWidth);
+                    td.style.maxWidth = 'none';
+                });
+                tableContainer.style.overflowX = 'visible';
+
+                console.log("DEBUG: Elements hidden, table styles adjusted for PDF capture.");
+
+                const columnsForPdf = selectedColumns.filter(col => col !== 'Actions');
+                renderTableForPdf(allRisksData, columnsForPdf);
+
+                console.log("DEBUG: Table re-rendered for PDF capture.");
+
+                try {
+                    const dashboardElement = document.querySelector('.bg-white.p-8.rounded-lg.shadow-xl.border.border-gray-200');
+                    if (!dashboardElement) {
+                        throw new Error("Dashboard element not found for PDF capture.");
+                    }
+                    const canvas = await html2canvas(dashboardElement, {
+                        scale: 2,
+                        useCORS: true
+                    });
+
+                    console.log("DEBUG: html2canvas capture complete.");
+
+                    const imgData = canvas.toDataURL('image/png');
+                    const { jsPDF } = window.jspdf;
+
+                    const pdf = new jsPDF('l', 'mm', 'a4');
+
+                    const imgWidth = 297;
+                    const pageHeight = 210;
+
+                    const imgHeight = canvas.height * imgWidth / canvas.width;
+                    let heightLeft = imgHeight;
+                    let position = 0;
+
+                    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                    heightLeft -= pageHeight;
+
+                    while (heightLeft >= 0) {
+                        position = heightLeft - imgHeight;
+                        pdf.addPage();
+                        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                        heightLeft -= pageHeight;
+                    }
+
+                    console.log("DEBUG: PDF image added to document.");
+
+                    const pdfBlob = pdf.output('blob');
+                    const pdfUrl = URL.createObjectURL(pdfBlob);
+                    const a = document.createElement('a');
+                    a.href = pdfUrl;
+                    a.download = 'ERM_Dashboard.pdf';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(pdfUrl);
+
+                    console.log("DEBUG: PDF download initiated.");
+                    window.showCustomMessage('PDF generated successfully!', 'success');
+                } catch (error) {
+                    console.error('Error generating PDF:', error);
+                    window.showCustomMessage('Failed to generate PDF. Please try again. Error: ' + error.message, 'danger');
+                } finally {
+                    tableContainer.style.overflowX = originalOverflowX;
+                    document.querySelectorAll('th').forEach((th, index) => {
+                        th.style.maxWidth = originalThMaxWidths[index];
+                    });
+                    document.querySelectorAll('td').forEach((td, index) => {
+                        td.style.maxWidth = originalTdMaxWidths[index];
+                    });
+                    renderRiskTable(allRisksData, selectedColumns);
+
+                    elementsToHide.forEach(el => {
+                        if (el) {
+                            el.style.display = originalDisplayStates.get(el) || '';
+                        }
+                    });
+                    console.log("DEBUG: Original states restored.");
+                }
+            });
+
+            // Initial load of risk owners and risks
+            fetchPrimaryRiskOwners();
+            fetchSecondaryRiskOwners();
+            
+            // Initial load of all risks if no owner is selected by default
+            // This handles the case where the dashboard loads without a specific owner pre-selected
+            if (primaryOwnerSelect.value === "" && secondaryOwnerSelect.value === "") {
+                fetchAndProcessRisks('all_risks', 'all_risks'); // Load all risks initially
+            }
+        });
+    </script>
+</body>
+</html>

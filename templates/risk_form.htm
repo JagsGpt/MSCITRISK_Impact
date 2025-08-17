@@ -1,0 +1,41 @@
+<!-- templates/risk_form.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex items-center justify-center min-h-screen -mt-20">
+    <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-4xl border border-gray-200">
+        <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">{{ title }}</h2>
+        <form method="POST" action="{{ form_action }}" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Iterate over risk dictionary to create form fields -->
+            {% for key, value in risk.items() %}
+                {% if key.lower() != 'id' %} <!-- Don't show or allow editing of the ID -->
+                    <div class="mb-4">
+                        <label for="{{ key | replace(' ', '_') }}" class="block text-gray-700 text-sm font-semibold mb-2">{{ key }}</label>
+                        {% if 'description' in key.lower() or 'plan' in key.lower() or 'controls' in key.lower() or 'cause' in key.lower() or 'consequences' in key.lower() or 'indicator' in key.lower() or 'update' in key.lower() or 'goal' in key.lower() %}
+                            <textarea id="{{ key | replace(' ', '_') }}" name="{{ key }}"
+                                      class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 h-24">{{ value }}</textarea>
+                        {% elif 'date' in key.lower() %}
+                            <input type="date" id="{{ key | replace(' ', '_') }}" name="{{ key }}" value="{{ value }}"
+                                   class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                        {% else %}
+                            <input type="text" id="{{ key | replace(' ', '_') }}" name="{{ key }}" value="{{ value }}"
+                                   class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                        {% endif %}
+                    </div>
+                {% endif %}
+            {% endfor %}
+
+            <div class="md:col-span-2 flex items-center justify-between mt-6">
+                <button type="submit"
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:shadow-outline transition-colors duration-200 shadow-md">
+                    Save Risk
+                </button>
+                <a href="{{ url_for('dashboard') }}"
+                   class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-md shadow-sm transition-colors">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

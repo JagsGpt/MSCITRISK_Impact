@@ -1,0 +1,308 @@
+<!-- templates/admin_users.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="bg-white p-8 rounded-lg shadow-xl w-full border border-gray-200">
+    <h1 class="text-3xl font-bold text-gray-800 mb-6">User Management</h1>
+
+    <div class="mb-8 p-6 bg-blue-50 rounded-lg border border-blue-200">
+        <h2 class="text-2xl font-semibold text-blue-800 mb-4" id="userFormTitle">Add New User</h2>
+        <form id="userForm" method="POST" action="{{ url_for('add_user_route') }}" class="space-y-4">
+            <input type="hidden" id="userId" name="user_id"> {# Hidden field for user ID when editing #}
+            <div class="mb-4">
+                <label for="username" class="block text-gray-700 text-sm font-semibold mb-2">Username</label>
+                <input type="text" id="username" name="username" required
+                       class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+            </div>
+            <div class="mb-4">
+                <label for="password" class="block text-gray-700 text-sm font-semibold mb-2">Password</label>
+                <input type="password" id="password" name="password"
+                       class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                <p id="passwordHelp" class="text-gray-500 text-xs mt-1" style="display:none;">Leave blank to keep current password. Enter a new password to change.</p>
+            </div>
+            <div class="mb-4">
+                <label for="role" class="block text-gray-700 text-sm font-semibold mb-2">Role</label>
+                <select id="role" name="role" required
+                        class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                    {% for role_option in roles %}
+                        <option value="{{ role_option }}">{{ role_option }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button type="submit" id="submitUserBtn"
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:shadow-outline transition-colors duration-200 shadow-md">
+                    Add User
+                </button>
+                <button type="button" id="cancelEditBtn" style="display:none;"
+                        class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-md shadow-sm transition-colors">
+                    Cancel Edit
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div class="mt-8 p-6 bg-gray-50 rounded-lg border border-gray-200">
+        <h2 class="text-2xl font-semibold text-gray-800 mb-4">Existing Users</h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-200">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="userTableBody" class="bg-white divide-y divide-gray-100">
+                    <tr><td colspan="4" class="px-6 py-4 text-center text-gray-500">Loading users...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Custom Confirmation Modal (for Delete User) -->
+<div class="modal fade" id="confirmDeleteUserModal" tabindex="-1" aria-labelledby="confirmDeleteUserModalLabel" aria-hidden="true" style="display: none;">
+    <div class="modal-dialog">
+        <div class="modal-content rounded-lg shadow-xl">
+            <div class="modal-header bg-red-100 border-b border-red-200 rounded-t-lg">
+                <h5 class="modal-title text-xl font-semibold text-red-800" id="confirmDeleteUserModalLabel">Confirm User Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-6">
+                <p>Are you sure you want to delete user "<span id="deleteUsernameSpan" class="font-bold"></span>"? This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer bg-gray-100 border-t border-gray-200 rounded-b-lg">
+                <button type="button" class="btn btn-secondary bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-md shadow-sm transition-colors" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" id="confirmDeleteUserBtn" class="btn btn-danger bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md shadow-md transition-colors">Delete User</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const userForm = document.getElementById('userForm');
+        const userFormTitle = document.getElementById('userFormTitle');
+        const userIdInput = document.getElementById('userId');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const passwordHelp = document.getElementById('passwordHelp');
+        const roleSelect = document.getElementById('role');
+        const submitUserBtn = document.getElementById('submitUserBtn');
+        const cancelEditBtn = document.getElementById('cancelEditBtn');
+        const userTableBody = document.getElementById('userTableBody');
+        const confirmDeleteUserModal = new bootstrap.Modal(document.getElementById('confirmDeleteUserModal'));
+        const confirmDeleteUserBtn = document.getElementById('confirmDeleteUserBtn');
+        const deleteUsernameSpan = document.getElementById('deleteUsernameSpan');
+
+        let currentUserToEditId = null; // Stores the ID of the user currently being edited/deleted
+
+        // Function to fetch and display users
+        async function fetchUsers() {
+            userTableBody.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center text-gray-500">Loading users...</td></tr>`;
+            try {
+                const response = await fetch('/api/users');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const users = await response.json();
+                renderUserTable(users);
+            } catch (error) {
+                console.error('Error fetching users:', error);
+                userTableBody.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center text-red-500">Failed to load users.</td></tr>`;
+                window.showCustomMessage('Failed to load users. Please refresh the page.', 'danger');
+            }
+        }
+
+        // Function to render the user table
+        function renderUserTable(users) {
+            userTableBody.innerHTML = ''; // Clear existing rows
+            if (users.length === 0) {
+                userTableBody.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center text-gray-500">No users found.</td></tr>`;
+                return;
+            }
+
+            users.forEach(user => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
+                row.innerHTML = `
+                    <td class="px-6 py-4 text-sm text-gray-900">${user.id}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">${user.username}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">${user.role}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">
+                        <button type="button" class="edit-user-btn bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-bold py-1 px-2 rounded-md shadow-sm transition-colors mr-2" data-user-id="${user.id}">Edit</button>
+                        <button type="button" class="delete-user-btn bg-red-500 hover:bg-red-600 text-white text-xs font-bold py-1 px-2 rounded-md shadow-sm transition-colors" data-user-id="${user.id}" data-username="${user.username}">Delete</button>
+                    </td>
+                `;
+                userTableBody.appendChild(row);
+            });
+
+            // Attach event listeners to new buttons
+            userTableBody.querySelectorAll('.edit-user-btn').forEach(button => {
+                button.addEventListener('click', handleEditUser);
+            });
+            userTableBody.querySelectorAll('.delete-user-btn').forEach(button => {
+                button.addEventListener('click', handleDeleteUser);
+            });
+        }
+
+        // Handle Edit User button click
+        async function handleEditUser(event) {
+            const userId = event.target.dataset.userId;
+            currentUserToEditId = userId; // Store ID for form submission
+            userFormTitle.textContent = 'Edit User';
+            submitUserBtn.textContent = 'Update User';
+            userForm.action = `/admin/users/edit/${userId}`; // Change form action to edit route
+            cancelEditBtn.style.display = 'inline-block'; // Show cancel button
+
+            // Fetch user details to populate the form
+            try {
+                const response = await fetch(`/api/users/${userId}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const user = await response.json();
+                userIdInput.value = user.id;
+                usernameInput.value = user.username;
+                roleSelect.value = user.role;
+                passwordInput.value = ''; // Clear password field for security
+                passwordInput.placeholder = 'Leave blank to keep current password';
+                passwordInput.required = false; // Password is not required for update unless changed
+                passwordHelp.style.display = 'block'; // Show help text
+
+                // Disable editing of 'admin' and 'License' username/role
+                if (user.username === 'admin' || user.username === 'License') {
+                    usernameInput.readOnly = true;
+                    roleSelect.disabled = true;
+                    submitUserBtn.disabled = true; // Disable submit button for these users
+                    window.showCustomMessage(`Cannot edit username or role for system user '${user.username}'.`, 'info');
+                } else {
+                    usernameInput.readOnly = false;
+                    roleSelect.disabled = false;
+                    submitUserBtn.disabled = false;
+                }
+
+            } catch (error) {
+                console.error('Error fetching user for edit:', error);
+                window.showCustomMessage('Failed to fetch user details for editing.', 'danger');
+                resetUserForm(); // Reset form on error
+            }
+        }
+
+        // Handle Delete User button click (show confirmation modal)
+        function handleDeleteUser(event) {
+            const userId = event.target.dataset.userId;
+            const username = event.target.dataset.username;
+
+            // Prevent deletion of 'admin' and 'License' users
+            if (username === 'admin' || username === 'License') {
+                window.showCustomMessage(`Cannot delete system user '${username}'.`, 'danger');
+                return;
+            }
+
+            currentUserToEditId = userId; // Store ID for actual deletion
+            deleteUsernameSpan.textContent = username; // Display username in modal
+            confirmDeleteUserModal.show();
+        }
+
+        // Handle actual deletion from modal
+        confirmDeleteUserBtn.addEventListener('click', async function() {
+            if (currentUserToEditId) {
+                try {
+                    const response = await fetch(`/admin/users/delete/${currentUserToEditId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded' // Flask expects this for form data
+                        }
+                    });
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+                    }
+                    // Flash message is handled by Flask redirect, so just refetch users
+                    fetchUsers();
+                    window.showCustomMessage('User deleted successfully!', 'success');
+                } catch (error) {
+                    console.error('Error deleting user:', error);
+                    window.showCustomMessage('Failed to delete user. ' + error.message, 'danger');
+                } finally {
+                    confirmDeleteUserModal.hide();
+                    currentUserToEditId = null; // Clear stored ID
+                }
+            }
+        });
+
+        // Reset the user form to "Add New User" state
+        function resetUserForm() {
+            userForm.reset(); // Clears all form fields
+            userFormTitle.textContent = 'Add New User';
+            submitUserBtn.textContent = 'Add User';
+            userForm.action = "{{ url_for('add_user_route') }}"; // Reset form action to add route
+            userIdInput.value = ''; // Clear hidden ID
+            passwordInput.required = true; // Password is required for new users
+            passwordInput.placeholder = ''; // Clear placeholder
+            passwordHelp.style.display = 'none'; // Hide help text
+            usernameInput.readOnly = false; // Enable username input
+            roleSelect.disabled = false; // Enable role select
+            submitUserBtn.disabled = false; // Enable submit button
+            cancelEditBtn.style.display = 'none'; // Hide cancel button
+            currentUserToEditId = null; // Clear stored ID
+        }
+
+        // Event listener for form submission (handles both add and edit)
+        userForm.addEventListener('submit', async function(event) {
+            event.preventDefault(); // Prevent default browser form submission
+
+            const formData = new URLSearchParams(new FormData(userForm));
+            const actionUrl = userForm.action;
+            const isAdding = (submitUserBtn.textContent === 'Add User');
+
+            // If adding, ensure password is not empty
+            if (isAdding && passwordInput.value.trim() === '') {
+                window.showCustomMessage('Password is required for new users.', 'danger');
+                return;
+            }
+            // If editing and password field is empty, remove it from formData
+            if (!isAdding && passwordInput.value.trim() === '') {
+                formData.delete('password');
+            }
+
+
+            try {
+                const response = await fetch(actionUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text(); // Get raw error text from Flask
+                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+                }
+
+                // Assuming Flask flashes a message and returns a redirect response
+                // We'll just show a generic success message and refresh the table
+                window.showCustomMessage(`User ${isAdding ? 'added' : 'updated'} successfully!`, 'success');
+                resetUserForm(); // Reset form after successful submission
+                fetchUsers(); // Refresh the user list
+            } catch (error) {
+                console.error('Error submitting user form:', error);
+                // Try to parse Flask's flashed message from the response if available
+                // Note: Flask's flash messages are usually in the session and appear on redirect.
+                // If the error is from the fetch itself, we show a generic message.
+                window.showCustomMessage('Failed to save user. ' + error.message, 'danger');
+            }
+        });
+
+        // Event listener for Cancel Edit button
+        cancelEditBtn.addEventListener('click', resetUserForm);
+
+        // Initial fetch of users when the page loads
+        fetchUsers();
+    });
+</script>
+{% endblock %}
