@@ -33,7 +33,7 @@ DB_CONFIG = {
     'host': 'localhost',
     'database': 'ERM_DB',
     'user': 'postgres', # Default PostgreSQL user, change if yours is different
-    'password': 'nist1',
+    'password': 'vicit',
     'port': '5432'
 }
 
@@ -167,12 +167,19 @@ def init_db():
                 "Key Risk Indicator (KRI)" TEXT,
                 "Action plan to further improve the Controls and Mitigate the Risk" TEXT,
                 "Action Owner" VARCHAR(255),
+                "Progress" INTEGER CHECK ("Progress" >= 0 AND "Progress" <= 100),
                 "Status Update Term1" TEXT,
                 "Status Update Term2" TEXT,
                 "Status Update Term3" TEXT,
                 "Status Update Term4" TEXT
             );
         """)
+        # Add Progress column to existing risk_items table if it doesn't exist
+        cur.execute("""
+            ALTER TABLE risk_items 
+            ADD COLUMN IF NOT EXISTS "Progress" INTEGER CHECK ("Progress" >= 0 AND "Progress" <= 100);
+        """)
+        
         # New table for granular risk access
         cur.execute("""
             CREATE TABLE IF NOT EXISTS risk_access (
@@ -259,12 +266,8 @@ def calculate_inherent_rating(exposure):
         return "High"
     elif 5 <= exposure <= 9:
         return "Medium"
-    elif 3 <= exposure <= 4:
+    elif 1 <= exposure <= 4:
         return "Low"
-    elif 1 <= exposure <= 2:
-        return "Housekeeping"
-    else:
-        return "N/A" # Or some other default for out-of-range values
 
 def calculate_residual_exposure(inherent_rating, control_effectiveness):
     """Calculates Residual Exposure based on Inherent Rating and Control Effectiveness."""
@@ -277,10 +280,6 @@ def calculate_residual_exposure(inherent_rating, control_effectiveness):
 
     # Define the mapping for Residual Exposure
     mapping = {
-        "Housekeeping": {
-            "Unsatisfactory": "Priority 3", "Weak": "Priority 3", "Satisfactory": "Priority 4",
-            "Good": "Priority 5", "Very Good": "Priority 5"
-        },
         "Low": {
             "Unsatisfactory": "Priority 2", "Weak": "Priority 3", "Satisfactory": "Priority 3",
             "Good": "Priority 4", "Very Good": "Priority 5"
@@ -712,18 +711,18 @@ def add_risk(data):
                         values_to_insert.append(pd.to_datetime(val_to_process).strftime('%Y-%m-%d'))
                     except ValueError:
                         values_to_insert.append(None)
-                elif col_name == "Impact" or col_name == "Likelihood":
-                    values_to_insert.append(int(val_to_process) if pd.notna(val_to_process) else None)
-                elif col_name == "Inherent Exposure":
-                    values_to_insert.append(inherent_exposure)
-                elif col_name == "Inherent Rating":
-                    values_to_insert.append(inherent_rating)
-                elif col_name == "Residual Exposure (New)":
-                    values_to_insert.append(residual_exposure)
-                elif pd.isna(val_to_process):
-                    values_to_insert.append(None)
-                else:
-                    values_to_insert.append(val_to_process)
+            elif col_name == "Impact" or col_name == "Likelihood":
+                values_to_insert.append(int(val_to_process) if pd.notna(val_to_process) else None)
+            elif col_name == "Inherent Exposure":
+                values_to_insert.append(inherent_exposure)
+            elif col_name == "Inherent Rating":
+                values_to_insert.append(inherent_rating)
+            elif col_name == "Residual Exposure (New)":
+                values_to_insert.append(residual_exposure)
+            elif pd.isna(val_to_process):
+                values_to_insert.append(None)
+            else:
+                values_to_insert.append(val_to_process)
 
 
         insert_query = f"INSERT INTO risk_items ({', '.join(columns_to_insert)}) VALUES ({', '.join(['%s'] * len(values_to_insert))})"
@@ -981,6 +980,52 @@ def get_due_date_status_chart_data():
     except Exception as e:
         print(f"Error fetching due date status chart data: {e}")
         return jsonify({'error': f'Error fetching chart data: {e}'}), 500
+    finally:
+        cur.close()
+        conn.close()
+
+@app.route('/api/chart_data/impact_likelihood_matrix')
+@login_required
+def get_impact_likelihood_matrix_data():
+    """API endpoint to get Impact vs Likelihood matrix data for professional risk heat map"""
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Database connection failed'}), 500
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    try:
+        # Get all risks with Impact and Likelihood data
+        cur.execute("""
+            SELECT 
+                "Risk Number",
+                "Risk Name",
+                "Impact",
+                "Likelihood",
+                "Inherent Exposure",
+                "Inherent Rating",
+                "Residual Exposure (New)",
+                "Risk Owner"
+            FROM risk_items 
+            WHERE "Impact" IS NOT NULL 
+            AND "Likelihood" IS NOT NULL 
+            AND "Impact" BETWEEN 1 AND 5 
+            AND "Likelihood" BETWEEN 1 AND 5
+        """)
+        risks = cur.fetchall()
+        
+        # Convert to list of dictionaries for JSON serialization
+        matrix_data = []
+        for risk in risks:
+            risk_dict = dict(risk)
+            # Ensure numeric values are properly converted
+            risk_dict['Impact'] = int(risk_dict['Impact']) if risk_dict['Impact'] else 0
+            risk_dict['Likelihood'] = int(risk_dict['Likelihood']) if risk_dict['Likelihood'] else 0
+            risk_dict['Inherent Exposure'] = int(risk_dict['Inherent Exposure']) if risk_dict['Inherent Exposure'] else 0
+            matrix_data.append(risk_dict)
+            
+        return jsonify(matrix_data)
+    except Exception as e:
+        print(f"Error fetching impact likelihood matrix data: {e}")
+        return jsonify({'error': f'Error fetching matrix data: {e}'}), 500
     finally:
         cur.close()
         conn.close()

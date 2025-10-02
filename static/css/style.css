@@ -1,0 +1,26 @@
+/* Custom styles for ERM dashboard */
+table tr:hover {
+    background-color: #f1f5f9;
+}
+canvas {
+    max-height: 265px;
+}
+.alert {
+    animation: fadeIn 0.5s ease-in-out;
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.sort-icon {
+    display: inline-block;
+    width: 16px;
+    text-align: center;
+}
+th {
+    position: relative;
+}
+th:hover {
+    background-color: #e5e7eb;
+    cursor: pointer;
+}

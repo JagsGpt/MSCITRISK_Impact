@@ -1,102 +1,336 @@
-<!-- templates/dashboard.html -->
 {% extends "base.html" %}
 
 {% block content %}
-<div class="bg-white p-8 rounded-lg shadow-xl border border-gray-200">
-    <h1 id="dashboardTitle" class="text-3xl font-bold text-gray-800 mb-6">Risk Dashboard</h1>
+<div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+    <!-- Dashboard Header -->
+    <div class="bg-white shadow-lg border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-20">
+                <div class="flex items-center space-x-4">
+                    <div class="flex-shrink-0">
+                        <div class="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div>
+                        <h1 id="dashboardTitle" class="text-2xl font-bold text-gray-900">Risk Management Dashboard</h1>
+                        <p class="text-sm text-gray-500">Monitor and analyze enterprise risk metrics</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="hidden md:flex items-center space-x-2 text-sm text-gray-500">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <span>Last updated: <span id="lastUpdated">Just now</span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
     {% if license_message %}
-        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
-            <strong class="font-bold">License Warning!</strong>
+        <div class="bg-red-50 border-l-4 border-red-500 text-red-800 px-6 py-4 rounded-lg mb-8 shadow-md" role="alert" aria-live="assertive">
+            <strong class="font-semibold">License Warning!</strong>
             <span class="block sm:inline">{{ license_message }}</span>
         </div>
     {% endif %}
 
-    <!-- Chart Containers -->
-    <div class="flex flex-wrap justify-center gap-6 mb-8">
-        <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 flex flex-col items-center justify-center" style="width: 265px; height: 320px;">
-            <h2 class="text-xl font-semibold text-gray-800 mb-3 text-center">Inherent Rating</h2>
-            <div id="inherentRatingChart" style="width: 265px; height: 265px; margin: auto;"></div>
+        <!-- Key Metrics Overview -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">High Risk Items</dt>
+                            <dd class="text-lg font-semibold text-gray-900" id="highRiskCount">-</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Overdue Items</dt>
+                            <dd class="text-lg font-semibold text-gray-900" id="overdueCount">-</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Total Risks</dt>
+                            <dd class="text-lg font-semibold text-gray-900" id="totalRiskCount">-</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Risk Trend</dt>
+                            <dd class="text-lg font-semibold text-green-600" id="riskTrend">Improving</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 flex flex-col items-center justify-center" style="width: 265px; height: 320px;">
-            <h2 class="text-xl font-semibold text-gray-800 mb-3 text-center">Residual Priority</h2>
-            <div id="residualExposureChart" style="width: 265px; height: 265px; margin: auto;"></div>
-        </div>
-        <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 flex flex-col items-center justify-center" style="width: 265px; height: 320px;">
-            <h2 class="text-xl font-semibold text-gray-800 mb-3 text-center">Due Date</h2>
-            <div id="dueDateStatusChart" style="width: 265px; height: 265px; margin: auto;"></div>
-        </div>
+
+        <!-- Chart Containers -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+            <!-- Inherent Rating -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-semibold text-gray-900">Inherent Rating</h3>
+                        <div class="flex items-center space-x-2">
+                            <div class="w-2 h-2 bg-green-400 rounded-full"></div>
+                            <span class="text-xs text-gray-500">Live</span>
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-1">Distribution of inherent risk levels</p>
+                </div>
+                <div class="p-6">
+                    <div id="inherentRatingChart" class="w-full h-[280px]"></div>
+                </div>
+            </div>
+
+            <!-- Residual Priority -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-semibold text-gray-900">Residual Priority</h3>
+                        <div class="flex items-center space-x-2">
+                            <div class="w-2 h-2 bg-green-400 rounded-full"></div>
+                            <span class="text-xs text-gray-500">Live</span>
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-1">Post-mitigation risk priorities</p>
+                </div>
+                <div class="p-6">
+                    <div id="residualExposureChart" class="w-full h-[280px]"></div>
+                </div>
+            </div>
+
+            <!-- Due Date -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-semibold text-gray-900">Due Date Status</h3>
+                        <div class="flex items-center space-x-2">
+                            <div class="w-2 h-2 bg-green-400 rounded-full"></div>
+                            <span class="text-xs text-gray-500">Live</span>
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-1">Timeline compliance overview</p>
+                </div>
+                <div class="p-6">
+                    <div id="dueDateStatusChart" class="w-full h-[280px]"></div>
+                </div>
+            </div>
     </div>
 
-    <div class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
-        {# Primary Risk Owner Selector #}
-        <div>
-            <label for="primaryOwnerSelect" id="primaryOwnerSelectLabel" class="block text-gray-700 text-sm font-semibold mb-2">Select Primary Risk Owner:</label>
-            <select id="primaryOwnerSelect" class="form-select appearance-none block w-full px-3 py-2 text-base font-normal text-gray-700 bg-white bg-clip-padding bg-no-repeat border border-solid border-gray-300 rounded-md transition ease-in-out m-0 focus:text-gray-700 focus:bg-white focus:border-blue-600 focus:outline-none shadow-sm">
-                <option value="">-- Select Primary Owner --</option>
-                <option value="all_risks">All Primary Risks</option>
-            </select>
+        <!-- Impact vs Likelihood Chart -->
+        <div class="mb-8">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">Risk Matrix Analysis</h3>
+                            <p class="text-sm text-gray-500 mt-1">Impact vs Likelihood distribution with risk concentration</p>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <div class="flex items-center space-x-2">
+                                <div class="w-2 h-2 bg-green-400 rounded-full"></div>
+                                <span class="text-xs text-gray-500">Real-time</span>
+                            </div>
+                            <button class="text-gray-400 hover:text-gray-600 transition-colors">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <div id="impactLikelihoodChart" class="w-full h-[500px]"></div>
+                </div>
+            </div>
         </div>
 
-        {# Secondary Risk Owner Selector #}
-        <div>
-            <label for="secondaryOwnerSelect" id="secondaryOwnerSelectLabel" class="block text-gray-700 text-sm font-semibold mb-2">Select Secondary Risk Owner:</label>
-            <select id="secondaryOwnerSelect" class="form-select appearance-none block w-full px-3 py-2 text-base font-normal text-gray-700 bg-white bg-clip-padding bg-no-repeat border border-solid border-gray-300 rounded-md transition ease-in-out m-0 focus:text-gray-700 focus:bg-white focus:border-blue-600 focus:outline-none shadow-sm">
-                <option value="">-- Select Secondary Owner --</option>
-                <option value="all_risks">All Secondary Risks</option>
-            </select>
+        <!-- Filters and Controls -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-8">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900">Risk Data Controls</h3>
+                <p class="text-sm text-gray-500 mt-1">Filter and manage risk data display</p>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-end">
+                    <!-- Primary Risk Owner Selector -->
+                    <div>
+                        <label for="primaryOwnerSelect" id="primaryOwnerSelectLabel" class="block text-sm font-medium text-gray-700 mb-2">Primary Risk Owner</label>
+                        <div class="relative">
+                            <select id="primaryOwnerSelect" class="block w-full px-4 py-3 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 appearance-none" aria-label="Select Primary Risk Owner">
+                                <option value="">All Primary Owners</option>
+                                <option value="all_risks">All Primary Risks</option>
+                            </select>
+                            <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Secondary Risk Owner Selector -->
+                    <div>
+                        <label for="secondaryOwnerSelect" id="secondaryOwnerSelectLabel" class="block text-sm font-medium text-gray-700 mb-2">Secondary Risk Owner</label>
+                        <div class="relative">
+                            <select id="secondaryOwnerSelect" class="block w-full px-4 py-3 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 appearance-none" aria-label="Select Secondary Risk Owner">
+                                <option value="">All Secondary Owners</option>
+                                <option value="all_risks">All Secondary Risks</option>
+                            </select>
+                            <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div id="actionButtonsContainer" class="flex flex-wrap gap-3" style="display: none;">
+                        <button type="button" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200" data-bs-toggle="modal" data-bs-target="#columnSelectionModal" aria-label="Select Columns">
+                            <svg class="-ml-1 mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h2a2 2 0 002-2z"></path>
+                            </svg>
+                            Columns
+                        </button>
+                        {% if current_user.role in ['ADMINISTRATOR', 'EDITOR'] %}
+                        <a href="{{ url_for('add_risk_route') }}" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200" aria-label="Add New Risk">
+                            <svg class="-ml-1 mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                            </svg>
+                            Add Risk
+                        </a>
+                        {% endif %}
+                        <button type="button" id="exportPdfButton" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200" aria-label="Export to PDF">
+                            <svg class="-ml-1 mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            Export PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <!-- Column Selector Button and Add Risk Button - Initially Hidden -->
-        <div id="actionButtonsContainer" class="flex flex-col sm:flex-row justify-start md:justify-end gap-3 col-span-full" style="display: none;">
-            <button type="button" class="btn btn-primary bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md shadow-md transition-colors" data-bs-toggle="modal" data-bs-target="#columnSelectionModal">
-                Select Columns
-            </button>
-            {% if current_user.role in ['ADMINISTRATOR', 'EDITOR'] %}
-            <a href="{{ url_for('add_risk_route') }}" class="btn btn-success bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md shadow-md transition-colors text-center">
-                Add New Risk
-            </a>
-            {% endif %}
-            <button type="button" id="exportPdfButton" class="btn btn-info bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md shadow-md transition-colors">
-                Export to PDF
-            </button>
+        <!-- Risk Data Table -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900">Risk Register</h3>
+                        <p class="text-sm text-gray-500 mt-1">Comprehensive list of identified risks and their details</p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center space-x-2 text-sm text-gray-500">
+                            <span>Showing</span>
+                            <span id="tableInfo" class="font-medium text-gray-900">0 of 0</span>
+                            <span>risks</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <div class="w-2 h-2 bg-green-400 rounded-full"></div>
+                            <span class="text-xs text-gray-500">Live data</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr id="riskTableHeaderRow">
+                            <!-- Table headers will be dynamically generated -->
+                        </tr>
+                    </thead>
+                    <tbody id="riskTableBody" class="bg-white divide-y divide-gray-200">
+                        <!-- Risk data will be dynamically loaded here -->
+                        <tr>
+                            <td colspan="100%" class="px-6 py-4 text-center text-gray-500 font-medium">Select an owner or view all risks.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </div>
-
-    <div class="overflow-x-auto bg-gray-50 rounded-lg shadow-sm border border-gray-100">
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-200">
-                <tr id="riskTableHeaderRow">
-                    <!-- Table headers will be dynamically generated -->
-                </tr>
-            </thead>
-            <tbody id="riskTableBody" class="bg-white divide-y divide-gray-100">
-                <!-- Risk data will be dynamically loaded here -->
-                <tr>
-                    <td colspan="100%" class="px-6 py-4 text-center text-gray-500">Select an owner or view all risks.</td>
-                </tr>
-            </tbody>
-        </table>
     </div>
 </div>
 
 <!-- Column Selection Modal -->
 <div class="modal fade" id="columnSelectionModal" tabindex="-1" aria-labelledby="columnSelectionModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
-        <div class="modal-content rounded-lg shadow-xl">
-            <div class="modal-header bg-gray-100 border-b border-gray-200 rounded-t-lg">
-                <h5 class="modal-title text-xl font-semibold text-gray-800" id="columnSelectionModalLabel">Select Columns to Display</h5>
+        <div class="modal-content rounded-xl shadow-2xl">
+            <div class="modal-header bg-gradient-to-r from-gray-100 to-gray-200 border-b border-gray-200 rounded-t-xl">
+                <h5 class="modal-title text-2xl font-semibold text-gray-800" id="columnSelectionModalLabel">Select Columns to Display</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body p-6">
-                <div id="modalColumnCheckboxes" class="grid gap-x-6 gap-y-2" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));">
+            <div class="modal-body p-8">
+                <!-- Select All / Deselect All Controls -->
+                <div class="mb-6 flex gap-4 justify-center">
+                    <button type="button" id="selectAllColumnsBtn" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-all duration-300">
+                        Select All
+                    </button>
+                    <button type="button" id="deselectAllColumnsBtn" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-all duration-300">
+                        Deselect All
+                    </button>
+                </div>
+                
+                <div id="modalColumnCheckboxes" class="grid gap-x-8 gap-y-4" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));">
                     <!-- Checkboxes will be dynamically loaded here -->
-                    <p class="text-gray-500">No columns available.</p>
+                    <p class="text-gray-500 font-medium">No columns available.</p>
                 </div>
             </div>
-            <div class="modal-footer bg-gray-100 border-t border-gray-200 rounded-b-lg">
-                <button type="button" class="btn btn-secondary bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-md shadow-sm transition-colors" data-bs-dismiss="modal">Close</button>
-                <button type="button" id="applyColumnSelectionBtn" class="btn btn-primary bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md shadow-md transition-colors">Apply Selection</button>
+            <div class="modal-footer bg-gray-100 border-t border-gray-200 rounded-b-xl">
+                <button type="button" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-6 rounded-lg shadow-sm transition-all duration-300" data-bs-dismiss="modal" aria-label="Close">Close</button>
+                <button type="button" id="applyColumnSelectionBtn" class="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-2 px-6 rounded-lg shadow-md transition-all duration-300" aria-label="Apply Column Selection">Apply Selection</button>
             </div>
         </div>
     </div>
@@ -105,19 +339,133 @@
 <!-- Custom Confirmation Modal (for Delete) -->
 <div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteModalLabel" aria-hidden="true" style="display: none;">
     <div class="modal-dialog">
-        <div class="modal-content rounded-lg shadow-xl">
-            <div class="modal-header bg-red-100 border-b border-red-200 rounded-t-lg">
+        <div class="modal-content rounded-xl shadow-2xl">
+            <div class="modal-header bg-red-50 border-b border-red-200 rounded-t-xl">
                 <h5 class="modal-title text-xl font-semibold text-red-800" id="confirmDeleteModalLabel">Confirm Deletion</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-6">
-                <p>Are you sure you want to delete this risk item? This action cannot be undone.</p>
+                <p class="text-gray-700 font-medium">Are you sure you want to delete this risk item? This action cannot be undone.</p>
             </div>
-            <div class="modal-footer bg-gray-100 border-t border-gray-200 rounded-b-lg">
-                <button type="button" class="btn btn-secondary bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-md shadow-sm transition-colors" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" id="confirmDeleteBtn" class="btn btn-danger bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md shadow-md transition-colors">Delete</button>
+            <div class="modal-footer bg-gray-100 border-t border-gray-200 rounded-b-xl">
+                <button type="button" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-6 rounded-lg shadow-sm transition-all duration-300" data-bs-dismiss="modal" aria-label="Cancel">Cancel</button>
+                <button type="button" id="confirmDeleteBtn" class="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-semibold py-2 px-6 rounded-lg shadow-md transition-all duration-300" aria-label="Confirm Delete">Delete</button>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Sample Chart.js Configurations for Doughnut Charts -->
+<script>
+    // Inherent Rating Chart (Doughnut)
+    ```chartjs
+    {
+        "type": "doughnut",
+        "data": {
+            "labels": ["High", "Medium", "Low"],
+            "datasets": [{
+                "label": "Inherent Rating",
+                "data": [10, 20, 15],
+                "backgroundColor": ["#EF4444", "#F59E0B", "#10B981"],
+                "borderColor": ["#B91C1C", "#D97706", "#059669"],
+                "borderWidth": 1
+            }]
+        },
+        "options": {
+            "responsive": true,
+            "maintainAspectRatio": false,
+            "plugins": {
+                "legend": {
+                    "position": "bottom",
+                    "labels": {
+                        "color": "#1F2937",
+                        "font": {
+                            "size": 12,
+                            "weight": "bold"
+                        }
+                    }
+                }
+            },
+            "animation": {
+                "animateScale": true,
+                "animateRotate": true
+            }
+        }
+    }
+    ```
+
+    // Residual Priority Chart (Doughnut)
+    ```chartjs
+    {
+        "type": "doughnut",
+        "data": {
+            "labels": ["Critical", "High", "Moderate", "Low"],
+            "datasets": [{
+                "label": "Residual Priority",
+                "data": [5, 15, 25, 10],
+                "backgroundColor": ["#7C3AED", "#EF4444", "#F59E0B", "#10B981"],
+                "borderColor": ["#6D28D9", "#B91C1C", "#D97706", "#059669"],
+                "borderWidth": 1
+            }]
+        },
+        "options": {
+            "responsive": true,
+            "maintainAspectRatio": false,
+            "plugins": {
+                "legend": {
+                    "position": "bottom",
+                    "labels": {
+                        "color": "#1F2937",
+                        "font": {
+                            "size": 12,
+                            "weight": "bold"
+                        }
+                    }
+                }
+            },
+            "animation": {
+                "animateScale": true,
+                "animateRotate": true
+            }
+        }
+    }
+    ```
+
+    // Due Date Status Chart (Doughnut)
+    ```chartjs
+    {
+        "type": "doughnut",
+        "data": {
+            "labels": ["Overdue", "Due Soon", "On Track"],
+            "datasets": [{
+                "label": "Due Date Status",
+                "data": [8, 12, 20],
+                "backgroundColor": ["#DC2626", "#F59E0B", "#10B981"],
+                "borderColor": ["#B91C1C", "#D97706", "#059669"],
+                "borderWidth": 1
+            }]
+        },
+        "options": {
+            "responsive": true,
+            "maintainAspectRatio": false,
+            "plugins": {
+                "legend": {
+                    "position": "bottom",
+                    "labels": {
+                        "color": "#1F2937",
+                        "font": {
+                            "size": 12,
+                            "weight": "bold"
+                        }
+                    }
+                }
+            },
+            "animation": {
+                "animateScale": true,
+                "animateRotate": true
+            }
+        }
+    }
+    ```
+</script>
 {% endblock %}

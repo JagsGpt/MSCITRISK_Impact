@@ -53,6 +53,14 @@
                             {% endfor %}
                         </select>
                     </div>
+                {% elif key == "Progress" %}
+                    <div class="mb-4">
+                        <label for="{{ clean_id }}" class="block text-gray-700 text-sm font-semibold mb-2">{{ key }} (%)</label>
+                        <input type="number" id="{{ clean_id }}" name="{{ key }}" value="{{ value or 0 }}"
+                               min="0" max="100" step="1"
+                               class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                        <small class="text-gray-500">Enter progress as a percentage (0-100)</small>
+                    </div>
                 {% elif key == "Impact" or key == "Likelihood" %}
                     <div class="mb-4">
                         <label for="{{ clean_id }}" class="block text-gray-700 text-sm font-semibold mb-2">{{ key }}</label>
@@ -180,10 +188,8 @@
                 return "High";
             } else if (exposure >= 5 && exposure <= 9) {
                 return "Medium";
-            } else if (exposure >= 3 && exposure <= 4) {
+            } else if (exposure >= 1 && exposure <= 4) {
                 return "Low";
-            } else if (exposure >= 1 && exposure <= 2) {
-                return "Housekeeping";
             } else {
                 return "N/A";
             }
@@ -195,10 +201,6 @@
             }
 
             const mapping = {
-                "Housekeeping": {
-                    "Unsatisfactory": "Priority 3", "Weak": "Priority 3", "Satisfactory": "Priority 4",
-                    "Good": "Priority 5", "Very Good": "Priority 5"
-                },
                 "Low": {
                     "Unsatisfactory": "Priority 2", "Weak": "Priority 3", "Satisfactory": "Priority 3",
                     "Good": "Priority 4", "Very Good": "Priority 5"
