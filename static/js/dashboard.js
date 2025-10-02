@@ -22,57 +22,96 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('highRiskCount').textContent = '0';
             document.getElementById('overdueCount').textContent = '0';
             document.getElementById('totalRiskCount').textContent = '0';
+            document.getElementById('riskTrend').textContent = 'N/A';
             return;
         }
 
         console.log('DEBUG: Updating metrics with', risks.length, 'risks');
         console.log('DEBUG: Sample risk data:', risks[0]);
 
-        // Count high risk items (Priority 1 and 2)
+        // Count high risk items (Inherent Rating = High or Extreme)
         const highRiskCount = risks.filter(risk => {
-            const residualPriority = risk['Residual Priority'] || risk['residual_priority'] || risk['Residual_Priority'];
-            const priority = residualPriority ? residualPriority.toString() : '';
-            const isHighRisk = priority === 'Priority 1' || priority === 'Priority 2' || priority === '1' || priority === '2';
-            return isHighRisk;
+            const inherentRating = risk['Inherent Rating'] || '';
+            return inherentRating === 'High' || inherentRating === 'Extreme';
         }).length;
 
         // Count overdue items - check multiple possible date fields
         const overdueCount = risks.filter(risk => {
-            // Check status field for overdue indicators
-            const status = (risk['Status'] || risk['status'] || '').toString().toLowerCase();
-            if (status.includes('overdue') || status.includes('late')) {
-                return true;
-            }
-            
-            // Check due date fields
-            const dueDate = risk['Due Date'] || risk['due_date'] || risk['Due_Date'];
+            const dueDate = risk['Due Date'];
             if (dueDate) {
                 const due = new Date(dueDate);
                 const now = new Date();
+                now.setHours(0, 0, 0, 0);
                 return due < now;
             }
-            
             return false;
         }).length;
 
         // Total risk count
         const totalRiskCount = risks.length;
 
+        // Calculate risk trend based on residual vs inherent exposure
+        let improvingCount = 0;
+        let decliningCount = 0;
+        risks.forEach(risk => {
+            const inherentRating = risk['Inherent Rating'] || '';
+            const residualExposure = risk['Residual Exposure (New)'] || '';
+
+            // Map inherent rating to numeric value
+            const inherentValue = {
+                'Extreme': 4,
+                'High': 3,
+                'Medium': 2,
+                'Low': 1
+            }[inherentRating] || 0;
+
+            // Map residual exposure to numeric value
+            const residualValue = {
+                'Priority 1': 4,
+                'Priority 2': 3,
+                'Priority 3': 2,
+                'Priority 4': 1,
+                'Priority 5': 0
+            }[residualExposure] || 0;
+
+            if (residualValue < inherentValue) {
+                improvingCount++;
+            } else if (residualValue > inherentValue) {
+                decliningCount++;
+            }
+        });
+
+        // Determine trend
+        let trendText = 'Stable';
+        let trendClass = 'text-gray-600';
+        if (improvingCount > decliningCount * 1.5) {
+            trendText = 'Improving';
+            trendClass = 'text-green-600';
+        } else if (decliningCount > improvingCount * 1.5) {
+            trendText = 'Worsening';
+            trendClass = 'text-red-600';
+        }
+
         // Update the DOM elements
         const highRiskElement = document.getElementById('highRiskCount');
         const overdueElement = document.getElementById('overdueCount');
         const totalRiskElement = document.getElementById('totalRiskCount');
+        const riskTrendElement = document.getElementById('riskTrend');
         const lastUpdatedElement = document.getElementById('lastUpdated');
 
         if (highRiskElement) highRiskElement.textContent = highRiskCount;
         if (overdueElement) overdueElement.textContent = overdueCount;
         if (totalRiskElement) totalRiskElement.textContent = totalRiskCount;
+        if (riskTrendElement) {
+            riskTrendElement.textContent = trendText;
+            riskTrendElement.className = `text-lg font-semibold ${trendClass}`;
+        }
         if (lastUpdatedElement) {
             const now = new Date();
             lastUpdatedElement.textContent = now.toLocaleTimeString();
         }
 
-        console.log(`Metrics updated: ${highRiskCount} high risk, ${overdueCount} overdue, ${totalRiskCount} total`);
+        console.log(`Metrics updated: ${highRiskCount} high risk, ${overdueCount} overdue, ${totalRiskCount} total, trend: ${trendText}`);
     }
 
     // Initialize charts using the existing D3.js functions from base.html
@@ -82,16 +121,30 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Fetch data for Impact vs Likelihood chart and metrics
     function loadDashboardData() {
+        // Show loading state
+        document.getElementById('highRiskCount').textContent = '...';
+        document.getElementById('overdueCount').textContent = '...';
+        document.getElementById('totalRiskCount').textContent = '...';
+        document.getElementById('riskTrend').textContent = '...';
+
         fetch('/api/all_risks_for_dashboard')
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
                 console.log('Risk data for dashboard:', data);
-                console.log('Sample risk for Impact/Likelihood:', data[0]);
-                
+                console.log('Total risks loaded:', data.length);
+                if (data.length > 0) {
+                    console.log('Sample risk for Impact/Likelihood:', data[0]);
+                }
+
                 // Create Impact vs Likelihood chart
                 createImpactLikelihoodChart(data);
-                
-                // Update metrics cards
+
+                // Update metrics cards with all risks
                 updateMetricsCards(data);
             })
             .catch(error => {
@@ -101,10 +154,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (container) {
                     container.innerHTML = '<div class="flex items-center justify-center h-full text-gray-500"><p>Error loading chart data</p></div>';
                 }
+                // Reset metrics to 0
+                updateMetricsCards([]);
             });
     }
-    
-    // Load dashboard data
+
+    // Load dashboard data on page load
     loadDashboardData();
 
     // Load risks with pagination and sorting
@@ -205,8 +260,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Update table info
                 updateTableInfo(filteredRisks.length, allRisks.length, page, perPage);
-                
-                // Update metrics cards with the filtered data
+
+                // Update metrics cards with all risks (not filtered)
                 updateMetricsCards(allRisks);
                 
                 // Show action buttons once data is loaded
@@ -214,9 +269,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Update pagination info with correct data
                 const totalPages = Math.ceil(filteredRisks.length / perPage);
-                document.getElementById('pageInfo').textContent = `Page ${page} of ${totalPages}`;
-                document.getElementById('prevPage').disabled = page === 1;
-                document.getElementById('nextPage').disabled = page === totalPages;
+                const pageInfo = document.getElementById('pageInfo');
+                const prevPage = document.getElementById('prevPage');
+                const nextPage = document.getElementById('nextPage');
+
+                if (pageInfo) pageInfo.textContent = `Page ${page} of ${totalPages}`;
+                if (prevPage) prevPage.disabled = page === 1;
+                if (nextPage) nextPage.disabled = page === totalPages;
             })
             .catch(error => console.error('Error loading risks:', error));
     }
@@ -285,31 +344,70 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
     // Event listeners
-    document.getElementById('primaryOwnerSelect').addEventListener('change', (e) => {
-        currentPage = 1;
-        loadRisks(document.getElementById('riskSearch').value, e.target.value, document.getElementById('secondaryOwnerSelect').value);
-    });
-    document.getElementById('secondaryOwnerSelect').addEventListener('change', (e) => {
-        currentPage = 1;
-        loadRisks(document.getElementById('riskSearch').value, document.getElementById('primaryOwnerSelect').value, e.target.value);
-    });
-    document.getElementById('riskSearch').addEventListener('input', (e) => {
-        currentPage = 1;
-        loadRisks(e.target.value, document.getElementById('primaryOwnerSelect').value, document.getElementById('secondaryOwnerSelect').value);
-    });
-    document.getElementById('prevPage').addEventListener('click', () => {
-        if (currentPage > 1) {
-            currentPage--;
-            loadRisks(document.getElementById('riskSearch').value, document.getElementById('primaryOwnerSelect').value, document.getElementById('secondaryOwnerSelect').value, currentPage);
+    // Event listeners with null checks
+    const primaryOwnerSelect = document.getElementById('primaryOwnerSelect');
+    const secondaryOwnerSelect = document.getElementById('secondaryOwnerSelect');
+    const riskSearch = document.getElementById('riskSearch');
+    const prevPage = document.getElementById('prevPage');
+    const nextPage = document.getElementById('nextPage');
+    const exportPdfButton = document.getElementById('exportPdfButton');
+
+    if (primaryOwnerSelect) {
+        primaryOwnerSelect.addEventListener('change', (e) => {
+            currentPage = 1;
+            loadRisks(riskSearch?.value || '', e.target.value, secondaryOwnerSelect?.value || '');
+        });
+    }
+
+    if (secondaryOwnerSelect) {
+        secondaryOwnerSelect.addEventListener('change', (e) => {
+            currentPage = 1;
+            loadRisks(riskSearch?.value || '', primaryOwnerSelect?.value || '', e.target.value);
+        });
+    }
+
+    if (riskSearch) {
+        riskSearch.addEventListener('input', (e) => {
+            currentPage = 1;
+            loadRisks(e.target.value, primaryOwnerSelect?.value || '', secondaryOwnerSelect?.value || '');
+        });
+    }
+
+    if (prevPage) {
+        prevPage.addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                loadRisks(riskSearch?.value || '', primaryOwnerSelect?.value || '', secondaryOwnerSelect?.value || '', currentPage);
+            }
+        });
+    }
+
+    if (nextPage) {
+        nextPage.addEventListener('click', () => {
+            currentPage++;
+            loadRisks(riskSearch?.value || '', primaryOwnerSelect?.value || '', secondaryOwnerSelect?.value || '', currentPage);
+        });
+    }
+
+    if (exportPdfButton) {
+        exportPdfButton.addEventListener('click', () => {
+            exportToPDF();
+        });
+    }
+
+    // Update table info display
+    function updateTableInfo(filteredCount, totalCount, currentPage, perPage) {
+        const startIndex = (currentPage - 1) * perPage + 1;
+        const endIndex = Math.min(currentPage * perPage, filteredCount);
+        const tableInfo = document.getElementById('tableInfo');
+        if (tableInfo) {
+            if (filteredCount === 0) {
+                tableInfo.textContent = '0 of 0';
+            } else {
+                tableInfo.textContent = `${startIndex}-${endIndex} of ${filteredCount}`;
+            }
         }
-    });
-    document.getElementById('nextPage').addEventListener('click', () => {
-        currentPage++;
-        loadRisks(document.getElementById('riskSearch').value, document.getElementById('primaryOwnerSelect').value, document.getElementById('secondaryOwnerSelect').value, currentPage);
-    });
-    document.getElementById('exportPdfButton').addEventListener('click', () => {
-        exportToPDF();
-    });
+    }
 
     function confirmDelete(riskId) {
         const modal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
